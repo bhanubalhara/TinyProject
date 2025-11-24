@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, ensureDb } from '@/lib/db';
+import { getDatabase, ensureDb } from '@/lib/db';
 
 // GET /:code - Redirect to original URL
 export async function GET(
@@ -19,11 +19,12 @@ export async function GET(
       );
     }
     
+    const sql = getDatabase();
     const result = await sql`
       SELECT url FROM links WHERE code = ${code}
-    `;
+    ` as Array<{ url: string }>;
 
-    if (result.length === 0) {
+    if (!result || result.length === 0) {
       return NextResponse.json(
         { error: 'Link not found' },
         { status: 404 }

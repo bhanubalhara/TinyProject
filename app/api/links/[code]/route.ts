@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, ensureDb } from '@/lib/db';
+import { getDatabase, ensureDb } from '@/lib/db';
 
 // GET /api/links/:code - Get stats for a specific code
 export async function GET(
@@ -9,14 +9,14 @@ export async function GET(
   try {
     await ensureDb();
     const { code } = params;
-    
+    const sql = getDatabase();
     const result = await sql`
       SELECT code, url, clicks, last_clicked, created_at
       FROM links
       WHERE code = ${code}
-    `;
+    ` as Array<{ code: string; url: string; clicks: number; last_clicked: string | null; created_at: string }>;
 
-    if (result.length === 0) {
+    if (!result || result.length === 0) {
       return NextResponse.json(
         { error: 'Link not found' },
         { status: 404 }
@@ -48,14 +48,14 @@ export async function DELETE(
   try {
     await ensureDb();
     const { code } = params;
-    
+    const sql = getDatabase();
     const result = await sql`
       DELETE FROM links
       WHERE code = ${code}
       RETURNING code
-    `;
+    ` as Array<{ code: string }>;
 
-    if (result.length === 0) {
+    if (!result || result.length === 0) {
       return NextResponse.json(
         { error: 'Link not found' },
         { status: 404 }

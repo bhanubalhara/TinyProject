@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { sql, ensureDb } from '@/lib/db';
+import { getDatabase, ensureDb } from '@/lib/db';
 import { validateUrl, validateCode, generateShortCode } from '@/lib/utils';
 import { z } from 'zod';
 
@@ -28,8 +28,9 @@ export async function POST(request: NextRequest) {
       let attempts = 0;
       do {
         finalCode = generateShortCode(6);
-        const existing = await sql`SELECT id FROM links WHERE code = ${finalCode}`;
-        if (existing.length === 0) break;
+        const sql = getDatabase();
+        const existing = await sql`SELECT id FROM links WHERE code = ${finalCode}` as Array<{ id: number }>;
+        if (!existing || existing.length === 0) break;
         attempts++;
         if (attempts > 10) {
           return NextResponse.json(
@@ -40,8 +41,9 @@ export async function POST(request: NextRequest) {
       } while (true);
     } else {
       // Check if custom code already exists
-      const existing = await sql`SELECT id FROM links WHERE code = ${finalCode}`;
-      if (existing.length > 0) {
+      const sql = getDatabase();
+      const existing = await sql`SELECT id FROM links WHERE code = ${finalCode}` as Array<{ id: number }>;
+      if (existing && existing.length > 0) {
         return NextResponse.json(
           { error: 'Code already exists' },
           { status: 409 }
@@ -49,6 +51,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
+    const sql = getDatabase();
     await sql`
       INSERT INTO links (code, url, clicks, last_clicked)
       VALUES (${finalCode}, ${url}, 0, NULL)
@@ -83,11 +86,12 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   try {
     await ensureDb();
+    const sql = getDatabase();
     const links = await sql`
       SELECT code, url, clicks, last_clicked, created_at
       FROM links
       ORDER BY created_at DESC
-    `;
+    ` as Array<{ code: string; url: string; clicks: number; last_clicked: string | null; created_at: string }>;
 
     return NextResponse.json(links.map(link => ({
       code: link.code,

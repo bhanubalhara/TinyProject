@@ -1,6 +1,17 @@
 import { neon } from '@neondatabase/serverless';
 
-const sql = neon(process.env.DATABASE_URL!);
+let sql: ReturnType<typeof neon> | null = null;
+
+function getSql() {
+  if (!sql) {
+    const databaseUrl = process.env.DATABASE_URL;
+    if (!databaseUrl) {
+      throw new Error('DATABASE_URL environment variable is not set');
+    }
+    sql = neon(databaseUrl);
+  }
+  return sql;
+}
 
 let dbInitialized = false;
 
@@ -8,6 +19,7 @@ export async function initDatabase() {
   if (dbInitialized) return;
   
   try {
+    const sql = getSql();
     await sql`
       CREATE TABLE IF NOT EXISTS links (
         id SERIAL PRIMARY KEY,
@@ -38,5 +50,9 @@ export async function ensureDb() {
   }
 }
 
-export { sql };
+// Export a function that returns sql instead of sql directly
+// This prevents initialization during build time
+export function getDatabase() {
+  return getSql();
+}
 
